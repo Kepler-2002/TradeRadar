@@ -8,9 +8,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/dewei/TradeRadar/pkg/collector"
-	"github.com/dewei/TradeRadar/pkg/config"
-	"github.com/dewei/TradeRadar/pkg/messaging"
+	"TradeRadar/pkg/collector"
+	"TradeRadar/pkg/config"
+	"TradeRadar/pkg/messaging"
 )
 
 func main() {

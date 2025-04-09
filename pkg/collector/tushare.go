@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/dewei/TradeRadar/pkg/model"
+	"TradeRadar/pkg/model"
 )
 
 // TushareAdapter Tushare数据源适配器

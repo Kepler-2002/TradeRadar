@@ -1,11 +1,10 @@
 package repository
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
-	"github.com/dewei/TradeRadar/pkg/model"
+	"TradeRadar/pkg/model"
 )
 
 // Repository 数据仓库

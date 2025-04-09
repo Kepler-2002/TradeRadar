@@ -5,14 +5,14 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
-	"github.com/dewei/TradeRadar/pkg/config"
-	"github.com/dewei/TradeRadar/pkg/database"
-	"github.com/dewei/TradeRadar/pkg/engine"
-	"github.com/dewei/TradeRadar/pkg/messaging"
-	"github.com/dewei/TradeRadar/pkg/model"
-	"github.com/dewei/TradeRadar/pkg/scheduler"
+
+	"TradeRadar/pkg/config"
+	"TradeRadar/pkg/database"
+	"TradeRadar/pkg/engine"
+	"TradeRadar/pkg/messaging"
+	"TradeRadar/pkg/model"
+
 )
 
 func main() {

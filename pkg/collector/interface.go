@@ -1,7 +1,7 @@
 package collector
 
 import (
-	"github.com/dewei/TradeRadar/pkg/model"
+	"TradeRadar/pkg/model"
 )
 
 // QuoteFetcher 行情数据获取接口

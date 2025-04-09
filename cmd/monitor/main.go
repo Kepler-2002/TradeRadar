@@ -8,8 +8,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/dewei/TradeRadar/pkg/config"
-	"github.com/dewei/TradeRadar/pkg/monitor"
+	"TradeRadar/pkg/config"
+	"TradeRadar/pkg/monitor"
 )
 
 func main() {

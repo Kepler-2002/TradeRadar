@@ -2,7 +2,6 @@ package monitor
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"sync"
 	"time"

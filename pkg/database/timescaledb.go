@@ -7,7 +7,7 @@ import (
 	"time"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
-	"github.com/dewei/TradeRadar/pkg/config"
+	"TradeRadar/pkg/config"
 )
 
 // TimescaleDB TimescaleDB数据库连接

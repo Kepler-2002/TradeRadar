@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"github.com/dewei/TradeRadar/pkg/model"
+	"TradeRadar/pkg/model"
 )
 
 // LoadActiveRules 加载活跃规则

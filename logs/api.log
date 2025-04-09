@@ -1,1 +1,29 @@
-nohup: bin/api: No such file or directory
+2025/04/10 02:53:20 启动API服务...
+[GIN-debug] [WARNING] Creating an Engine instance with the Logger and Recovery middleware already attached.
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /health                   --> TradeRadar/pkg/api.(*Handlers).HealthCheck-fm (5 handlers)
+[GIN-debug] GET    /ready                    --> TradeRadar/pkg/api.(*Handlers).ReadinessCheck-fm (5 handlers)
+[GIN-debug] GET    /api/v1/quotes            --> TradeRadar/pkg/api.(*Handlers).GetQuotes-fm (5 handlers)
+[GIN-debug] POST   /api/v1/alerts/subscribe  --> TradeRadar/pkg/api.(*Handlers).SubscribeAlerts-fm (5 handlers)
+[GIN-debug] GET    /api/v1/alerts/history    --> TradeRadar/pkg/api.(*Handlers).GetAlertHistory-fm (5 handlers)
+2025/04/10 02:53:20 API服务器启动在 :8080
+[GIN] 2025/04/10 - 02:53:50 | 200 |     195.333µs |             ::1 | GET      "/health"
+[GIN] 2025/04/10 - 02:53:50 | 200 |     739.084µs |             ::1 | GET      "/health"
+[GIN] 2025/04/10 - 02:54:20 | 200 |      62.166µs |             ::1 | GET      "/health"
+[GIN] 2025/04/10 - 02:54:20 | 200 |       345.5µs |             ::1 | GET      "/health"
+[GIN] 2025/04/10 - 02:54:50 | 200 |     113.084µs |             ::1 | GET      "/health"
+[GIN] 2025/04/10 - 02:54:50 | 200 |     503.125µs |             ::1 | GET      "/health"
+[GIN] 2025/04/10 - 02:55:20 | 200 |    1.366125ms |             ::1 | GET      "/health"
+[GIN] 2025/04/10 - 02:55:20 | 200 |     1.73825ms |             ::1 | GET      "/health"
+[GIN] 2025/04/10 - 02:55:50 | 200 |      50.458µs |             ::1 | GET      "/health"
+[GIN] 2025/04/10 - 02:55:50 | 200 |     860.208µs |             ::1 | GET      "/health"
+[GIN] 2025/04/10 - 02:56:20 | 200 |    1.677958ms |             ::1 | GET      "/health"
+[GIN] 2025/04/10 - 02:56:20 | 200 |    2.194084ms |             ::1 | GET      "/health"
+[GIN] 2025/04/10 - 02:56:50 | 200 |     129.917µs |             ::1 | GET      "/health"
+[GIN] 2025/04/10 - 02:56:50 | 200 |     428.667µs |             ::1 | GET      "/health"
+[GIN] 2025/04/10 - 02:57:20 | 200 |     209.917µs |             ::1 | GET      "/health"
+[GIN] 2025/04/10 - 02:57:20 | 200 |     637.875µs |             ::1 | GET      "/health"

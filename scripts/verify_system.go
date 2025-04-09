@@ -6,12 +6,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/dewei/TradeRadar/pkg/collector"
-	"github.com/dewei/TradeRadar/pkg/config"
-	"github.com/dewei/TradeRadar/pkg/engine"
-	"github.com/dewei/TradeRadar/pkg/messaging"
-	"github.com/dewei/TradeRadar/pkg/model"
-	"github.com/dewei/TradeRadar/pkg/repository"
+	"TradeRadar/pkg/collector"
+	"TradeRadar/pkg/config"
+	"TradeRadar/pkg/engine"
+	"TradeRadar/pkg/messaging"
+	"TradeRadar/pkg/model"
+	"TradeRadar/pkg/repository"
 )
 
 func main() {

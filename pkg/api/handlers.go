@@ -5,10 +5,10 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/dewei/TradeRadar/pkg/collector"
-	"github.com/dewei/TradeRadar/pkg/engine"
-	"github.com/dewei/TradeRadar/pkg/model"
-	"github.com/dewei/TradeRadar/pkg/repository"
+	"TradeRadar/pkg/collector"
+	"TradeRadar/pkg/engine"
+	"TradeRadar/pkg/model"
+	"TradeRadar/pkg/repository"
 )
 
 // Handlers API处理程序

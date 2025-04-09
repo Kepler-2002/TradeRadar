@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package traderadar;
 
-option go_package = "github.com/dewei/TradeRadar/pkg/model";
+option go_package = "TradeRadar/pkg/model";
 
 import "google/protobuf/timestamp.proto";
 

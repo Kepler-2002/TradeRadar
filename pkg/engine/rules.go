@@ -4,7 +4,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/dewei/TradeRadar/pkg/model"
+	"TradeRadar/pkg/model"
 )
 
 // RuleEngine 异动检测规则引擎

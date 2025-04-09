@@ -42,16 +42,38 @@ api:
 EOF
 fi
 
-# 下载依赖
-echo "下载依赖..."
-go mod tidy
+# 使用本地模块
+export GO111MODULE=on
+export GOFLAGS=-mod=mod
 
 # 编译所有服务
 echo "编译服务..."
-go build -o bin/api cmd/api/main.go
-go build -o bin/collector cmd/collector/main.go
-go build -o bin/engine cmd/engine/main.go
-go build -o bin/monitor cmd/monitor/main.go
+
+# 添加错误处理
+compile_service() {
+  service=$1
+  echo "编译 $service 服务..."
+  go build -o bin/$service cmd/$service/main.go
+  if [ $? -ne 0 ]; then
+    echo "编译 $service 服务失败！"
+    exit 1
+  fi
+  echo "$service 服务编译成功"
+}
+
+# 逐个编译服务
+compile_service "api"
+compile_service "collector"
+compile_service "engine"
+compile_service "monitor"
+
+# 检查二进制文件是否存在
+for service in api collector engine monitor; do
+  if [ ! -f "bin/$service" ]; then
+    echo "错误: bin/$service 不存在，编译可能失败"
+    exit 1
+  fi
+done
 
 # 启动服务
 echo "启动服务..."

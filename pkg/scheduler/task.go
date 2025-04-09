@@ -3,8 +3,8 @@ package scheduler
 import (
 	"log"
 
-	"github.com/dewei/TradeRadar/pkg/engine"
-	"github.com/dewei/TradeRadar/pkg/repository"
+	"TradeRadar/pkg/engine"
+	"TradeRadar/pkg/repository"
 	"github.com/robfig/cron/v3"
 )
 

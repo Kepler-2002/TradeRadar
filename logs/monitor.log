@@ -1,1 +1,2 @@
-nohup: bin/monitor: No such file or directory
+2025/04/10 02:53:20 启动监控服务...
+2025/04/10 02:53:20 监控服务启动在 :8081

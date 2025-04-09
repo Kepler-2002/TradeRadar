@@ -4,10 +4,11 @@ import (
 	"log"
 	"os"
 
-	"github.com/dewei/TradeRadar/pkg/api"
-	"github.com/dewei/TradeRadar/pkg/collector"
-	"github.com/dewei/TradeRadar/pkg/engine"
-	"github.com/dewei/TradeRadar/pkg/repository"
+	"TradeRadar/pkg/api"
+	"TradeRadar/pkg/collector"
+	"TradeRadar/pkg/engine"
+	"TradeRadar/pkg/model" 
+	"TradeRadar/pkg/repository"
 )
 
 func main() {

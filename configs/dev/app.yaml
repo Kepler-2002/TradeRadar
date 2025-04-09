@@ -1,0 +1,28 @@
+app:
+  name: TradeRadar
+  env: development
+
+data_sources:
+  tushare:
+    api_key: "your_api_key_here"
+    base_url: "https://api.tushare.pro"
+    timeout: 10s
+
+database:
+  timescaledb:
+    host: localhost
+    port: 5432
+    user: postgres
+    password: postgres
+    dbname: traderadar
+    sslmode: disable
+
+nats:
+  url: "nats://localhost:4222"
+  cluster_id: "test-cluster"
+  client_id: "traderadar-engine"
+
+api:
+  port: 8080
+  read_timeout: 5s
+  write_timeout: 10s

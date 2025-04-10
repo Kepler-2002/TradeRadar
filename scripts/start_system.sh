@@ -43,9 +43,6 @@ api:
 EOF
 fi
 
-# 启动AKShare服务
-echo "启动AKShare服务..."
-./scripts/start_akshare.sh
 
 # 启动NATS服务
 echo "启动NATS服务..."

@@ -29,6 +29,7 @@ const (
 // AlertEvent 异动事件
 type AlertEvent struct {
 	Symbol    string    `json:"symbol"`
+	Name      string    `json:"name"`
 	Type      AlertType `json:"type"`
 	Intensity float64   `json:"intensity"`
 	Timestamp time.Time `json:"timestamp"`

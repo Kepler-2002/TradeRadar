@@ -56,6 +56,10 @@ func (c *NATSClient) PublishQuote(quote model.StockQuote) error {
 		return fmt.Errorf("序列化行情数据失败: %w", err)
 	}
 	
+	// 打印详细的发布信息
+	log.Printf("发布行情数据: %s (%.2f) 涨跌幅: %.2f%%, 成交量: %.0f\n", 
+		quote.Symbol, quote.Price, quote.ChangePercent, quote.Volume)
+	
 	return c.conn.Publish("quotes", data)
 }
 
@@ -66,11 +70,16 @@ func (c *NATSClient) PublishAlert(alert model.AlertEvent) error {
 		return fmt.Errorf("序列化异动事件失败: %w", err)
 	}
 	
+	// 打印详细的异动事件信息，使用正确的字段名
+	log.Printf("发布异动事件: %s (%s) 类型: %s\n", 
+		alert.Symbol, alert.Name, alert.Type)
+	
 	return c.conn.Publish("alerts", data)
 }
 
 // SubscribeQuotes 订阅行情数据
 func (c *NATSClient) SubscribeQuotes(handler func(model.StockQuote)) (stan.Subscription, error) {
+	log.Printf("订阅行情数据主题: quotes\n")
 	return c.conn.Subscribe(
 		"quotes",
 		func(msg *stan.Msg) {
@@ -79,6 +88,11 @@ func (c *NATSClient) SubscribeQuotes(handler func(model.StockQuote)) (stan.Subsc
 				log.Printf("解析行情数据失败: %v\n", err)
 				return
 			}
+			
+			// 打印接收到的行情数据
+			log.Printf("接收行情数据: %s (%.2f) 涨跌幅: %.2f%%, 成交量: %.0f\n", 
+				quote.Symbol, quote.Price, quote.ChangePercent, quote.Volume)
+			
 			handler(quote)
 		},
 		stan.StartWithLastReceived(),
@@ -87,6 +101,7 @@ func (c *NATSClient) SubscribeQuotes(handler func(model.StockQuote)) (stan.Subsc
 
 // SubscribeAlerts 订阅异动事件
 func (c *NATSClient) SubscribeAlerts(handler func(model.AlertEvent)) (stan.Subscription, error) {
+	log.Printf("订阅异动事件主题: alerts\n")
 	return c.conn.Subscribe(
 		"alerts",
 		func(msg *stan.Msg) {
@@ -95,8 +110,28 @@ func (c *NATSClient) SubscribeAlerts(handler func(model.AlertEvent)) (stan.Subsc
 				log.Printf("解析异动事件失败: %v\n", err)
 				return
 			}
+			
+			// 打印接收到的异动事件，使用正确的字段名
+			log.Printf("接收异动事件: %s (%s) 类型: %s\n", 
+				alert.Symbol, alert.Name, alert.Type)
+			
 			handler(alert)
 		},
 		stan.StartWithLastReceived(),
 	)
+}
+
+// PrintQuoteDetails 打印行情数据详情（用于调试）
+func PrintQuoteDetails(quote model.StockQuote) {
+	fmt.Printf("\n===== 行情数据详情 =====\n")
+	fmt.Printf("股票代码: %s\n", quote.Symbol)
+	fmt.Printf("股票名称: %s\n", quote.Name)
+	fmt.Printf("最新价格: %.2f\n", quote.Price)
+	fmt.Printf("开盘价格: %.2f\n", quote.Open)
+	fmt.Printf("最高价格: %.2f\n", quote.High)
+	fmt.Printf("最低价格: %.2f\n", quote.Low)
+	fmt.Printf("成交量: %.0f\n", quote.Volume)
+	fmt.Printf("涨跌幅: %.2f%%\n", quote.ChangePercent)
+	fmt.Printf("时间戳: %s\n", quote.Timestamp.Format("2006-01-02 15:04:05"))
+	fmt.Printf("========================\n\n")
 }

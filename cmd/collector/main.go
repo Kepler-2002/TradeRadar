@@ -95,10 +95,15 @@ func startCollection(
 			}
 			
 			// 发布行情数据
+			// 在发布行情数据之前添加
 			for _, quote := range quotes {
-				if err := natsClient.PublishQuote(quote); err != nil {
-					log.Printf("发布行情数据失败: %v\n", err)
-				}
+			    // 打印详细信息
+			    messaging.PrintQuoteDetails(quote)
+			    
+			    // 发布到NATS
+			    if err := natsClient.PublishQuote(quote); err != nil {
+			        log.Printf("发布行情数据失败: %v\n", err)
+			    }
 			}
 			
 			log.Printf("已采集并发布%d条行情数据\n", len(quotes))

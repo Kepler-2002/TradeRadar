@@ -3,6 +3,7 @@
 # 设置环境变量
 export CONFIG_PATH="configs/dev/app.yaml"
 export STOCK_CODES="000001.SZ,600000.SH,601318.SH"
+export AKSHARE_URL="http://localhost:5000"
 
 # 确保目录存在
 mkdir -p bin logs configs/dev
@@ -42,6 +43,14 @@ api:
 EOF
 fi
 
+# 启动AKShare服务
+echo "启动AKShare服务..."
+./scripts/start_akshare.sh
+
+# 启动NATS服务
+echo "启动NATS服务..."
+./scripts/start_nats.sh
+
 # 使用本地模块
 export GO111MODULE=on
 export GOFLAGS=-mod=mod
@@ -74,6 +83,13 @@ for service in api collector engine monitor; do
     exit 1
   fi
 done
+
+# 启动AKTools服务
+echo "启动AKTools服务..."
+./scripts/start_aktools.sh
+
+# 设置AKTools URL环境变量
+export AKSHARE_URL="http://127.0.0.1:8081"
 
 # 启动服务
 echo "启动服务..."

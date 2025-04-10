@@ -27,11 +27,13 @@ func main() {
 		log.Fatalf("加载配置失败: %v\n", err)
 	}
 	
-	// 创建Tushare适配器
-	tushare := collector.NewTushareAdapter(
-		cfg.DataSources.Tushare.APIKey,
-		cfg.DataSources.Tushare.BaseURL,
-	)
+	// 创建数据适配器
+	// 使用AKShare适配器
+	akshareURL := os.Getenv("AKSHARE_URL")
+	if akshareURL == "" {
+		akshareURL = "http://localhost:5000"  // 默认AKShare服务地址
+	}
+	fetcher := collector.NewAKShareAdapter(akshareURL)
 	
 	// 连接NATS
 	natsClient, err := messaging.NewNATSClient(
@@ -49,7 +51,7 @@ func main() {
 	
 	// 启动定时采集
 	stopChan := make(chan struct{})
-	go startCollection(tushare, natsClient, stockCodes, stopChan)
+	go startCollection(fetcher, natsClient, stockCodes, stopChan)
 	
 	// 等待中断信号
 	sigChan := make(chan os.Signal, 1)
@@ -79,7 +81,7 @@ func startCollection(
 	stockCodes []string,
 	stopChan <-chan struct{},
 ) {
-	ticker := time.NewTicker(5 * time.Second) // 每5秒采集一次
+	ticker := time.NewTicker(20 * time.Second) // 每20秒采集一次
 	defer ticker.Stop()
 	
 	for {

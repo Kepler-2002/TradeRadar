@@ -2,193 +2,284 @@
 package messaging
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
+	"sync"
+	"time"
 
-	"github.com/nats-io/stan.go"
-
-	"TradeRadar/pkg/llm"
-	"TradeRadar/pkg/model"
+	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 )
 
-// NATSClient NATS客户端
+// NATSClient NATS JetStream客户端 - 纯基础能力封装
 type NATSClient struct {
-	conn      stan.Conn
-	clusterID string
-	clientID  string
+	conn      *nats.Conn
+	jetStream jetstream.JetStream
 	natsURL   string
+	ctx       context.Context
+	cancel    context.CancelFunc
+	consumers map[string]jetstream.Consumer // 消费者管理
+	mu        sync.RWMutex                  // 保护consumers
 }
 
-// NewNATSClient 创建新的NATS客户端
-func NewNATSClient(natsURL, clusterID, clientID string) (*NATSClient, error) {
-	client := &NATSClient{
-		natsURL:   natsURL,
-		clusterID: clusterID,
-		clientID:  clientID,
-	}
+// MessageHandler 通用消息处理函数类型
+type MessageHandler func(data []byte) error
 
-	// 连接到NATS Streaming
-	conn, err := stan.Connect(
-		clusterID,
-		clientID,
-		stan.NatsURL(natsURL),
-		stan.SetConnectionLostHandler(func(_ stan.Conn, reason error) {
-			log.Printf("连接丢失: %v\n", reason)
-			// 实际项目中应该实现重连逻辑
+// NewNATSClient 创建新的NATS客户端
+func NewNATSClient(natsURL string) (*NATSClient, error) {
+	// 连接NATS
+	nc, err := nats.Connect(natsURL,
+		nats.ReconnectWait(2*time.Second),
+		nats.MaxReconnects(-1), // 无限重连
+		nats.DisconnectErrHandler(func(nc *nats.Conn, err error) {
+			log.Printf("NATS连接断开: %v", err)
+		}),
+		nats.ReconnectHandler(func(nc *nats.Conn) {
+			log.Println("NATS重新连接成功")
 		}),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("连接NATS Streaming失败: %w", err)
+		return nil, fmt.Errorf("连接NATS失败: %w", err)
 	}
 
-	client.conn = conn
+	// 创建JetStream上下文
+	js, err := jetstream.New(nc)
+	if err != nil {
+		nc.Close()
+		return nil, fmt.Errorf("创建JetStream失败: %w", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	client := &NATSClient{
+		conn:      nc,
+		jetStream: js,
+		natsURL:   natsURL,
+		ctx:       ctx,
+		cancel:    cancel,
+		consumers: make(map[string]jetstream.Consumer),
+	}
+
+	// 初始化基础Streams
+	if err := client.setupStreams(); err != nil {
+		log.Printf("警告: 设置Streams失败: %v", err)
+	}
+
 	return client, nil
+}
+
+// setupStreams 设置基础的Streams
+func (c *NATSClient) setupStreams() error {
+	// 定义基础的Streams配置
+	streams := []jetstream.StreamConfig{
+		{
+			Name:        "NEWS_STREAM",
+			Subjects:    []string{"news.*"},
+			Description: "新闻数据流",
+			Retention:   jetstream.LimitsPolicy,
+			MaxMsgs:     10000,
+			MaxBytes:    100 * 1024 * 1024,  // 100MB
+			MaxAge:      7 * 24 * time.Hour, // 保留7天
+		},
+		{
+			Name:        "QUOTES_STREAM",
+			Subjects:    []string{"quotes.*"},
+			Description: "股票行情数据流",
+			Retention:   jetstream.LimitsPolicy,
+			MaxMsgs:     100000,
+			MaxBytes:    100 * 1024 * 1024, // 100MB
+			MaxAge:      24 * time.Hour,    // 保留24小时
+		},
+		{
+			Name:        "ALERTS_STREAM",
+			Subjects:    []string{"alerts.*"},
+			Description: "异动事件数据流",
+			Retention:   jetstream.LimitsPolicy,
+			MaxMsgs:     50000,
+			MaxBytes:    50 * 1024 * 1024,   // 50MB
+			MaxAge:      7 * 24 * time.Hour, // 保留7天
+		},
+	}
+
+	for _, streamConfig := range streams {
+		_, err := c.jetStream.CreateOrUpdateStream(c.ctx, streamConfig)
+		if err != nil {
+			log.Printf("创建/更新Stream %s 失败: %v", streamConfig.Name, err)
+		} else {
+			log.Printf("Stream %s 设置成功", streamConfig.Name)
+		}
+	}
+
+	return nil
+}
+
+// Publish 发布消息到指定主题
+func (c *NATSClient) Publish(subject string, data interface{}) error {
+	var payload []byte
+	var err error
+
+	switch v := data.(type) {
+	case []byte:
+		payload = v
+	case string:
+		payload = []byte(v)
+	default:
+		payload, err = json.Marshal(data)
+		if err != nil {
+			return fmt.Errorf("序列化数据失败: %w", err)
+		}
+	}
+
+	_, err = c.jetStream.Publish(c.ctx, subject, payload)
+	if err != nil {
+		return fmt.Errorf("发布消息到 %s 失败: %w", subject, err)
+	}
+
+	log.Printf("发布消息到主题: %s, 数据大小: %d bytes", subject, len(payload))
+	return nil
+}
+
+// Subscribe 订阅指定主题的消息
+func (c *NATSClient) Subscribe(streamName, consumerName, filterSubject string, handler MessageHandler) error {
+	// 创建消费者配置
+	consumerConfig := jetstream.ConsumerConfig{
+		Name:          consumerName,
+		Description:   fmt.Sprintf("%s 消费者", consumerName),
+		FilterSubject: filterSubject,
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		DeliverPolicy: jetstream.DeliverNewPolicy,
+		ReplayPolicy:  jetstream.ReplayInstantPolicy,
+	}
+
+	// 创建或获取消费者
+	consumer, err := c.jetStream.CreateOrUpdateConsumer(c.ctx, streamName, consumerConfig)
+	if err != nil {
+		return fmt.Errorf("创建消费者 %s 失败: %w", consumerName, err)
+	}
+
+	// 保存消费者引用
+	c.mu.Lock()
+	c.consumers[consumerName] = consumer
+	c.mu.Unlock()
+
+	// 开始消费消息
+	go c.consumeMessages(consumer, consumerName, handler)
+
+	log.Printf("已订阅 %s (Stream: %s, Consumer: %s)", filterSubject, streamName, consumerName)
+	return nil
+}
+
+// consumeMessages 消费消息的通用逻辑
+func (c *NATSClient) consumeMessages(consumer jetstream.Consumer, consumerName string, handler MessageHandler) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("消费者 %s 异常退出: %v", consumerName, r)
+		}
+	}()
+
+	iter, err := consumer.Messages(jetstream.PullMaxMessages(10))
+	if err != nil {
+		log.Printf("获取 %s 消息迭代器失败: %v", consumerName, err)
+		return
+	}
+
+	for {
+		select {
+		case <-c.ctx.Done():
+			log.Printf("消费者 %s 收到停止信号", consumerName)
+			return
+		default:
+			msg, err := iter.Next()
+			if err != nil {
+				if err == jetstream.ErrNoMessages {
+					continue
+				}
+				log.Printf("获取 %s 消息失败: %v", consumerName, err)
+				time.Sleep(1 * time.Second)
+				continue
+			}
+
+			// 调用处理器
+			if err := handler(msg.Data()); err != nil {
+				log.Printf("消费者 %s 处理消息失败: %v", consumerName, err)
+				msg.Nak() // 拒绝消息
+			} else {
+				msg.Ack() // 确认消息
+			}
+		}
+	}
+}
+
+// CreateStream 创建新的Stream
+func (c *NATSClient) CreateStream(config jetstream.StreamConfig) error {
+	_, err := c.jetStream.CreateOrUpdateStream(c.ctx, config)
+	if err != nil {
+		return fmt.Errorf("创建Stream %s 失败: %w", config.Name, err)
+	}
+	log.Printf("Stream %s 创建成功", config.Name)
+	return nil
+}
+
+// DeleteConsumer 删除消费者
+func (c *NATSClient) DeleteConsumer(streamName, consumerName string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if err := c.jetStream.DeleteConsumer(c.ctx, streamName, consumerName); err != nil {
+		return fmt.Errorf("删除消费者 %s 失败: %w", consumerName, err)
+	}
+
+	delete(c.consumers, consumerName)
+	log.Printf("消费者 %s 已删除", consumerName)
+	return nil
+}
+
+// GetStreamInfo 获取Stream信息
+func (c *NATSClient) GetStreamInfo(streamName string) (*jetstream.StreamInfo, error) {
+	return c.jetStream.Stream(c.ctx, streamName)
+}
+
+// GetConsumerInfo 获取消费者信息
+func (c *NATSClient) GetConsumerInfo(streamName, consumerName string) (*jetstream.ConsumerInfo, error) {
+	return c.jetStream.Consumer(c.ctx, streamName, consumerName)
 }
 
 // Close 关闭连接
 func (c *NATSClient) Close() error {
-	return c.conn.Close()
-}
+	log.Println("正在关闭NATS连接...")
 
-// PublishQuote 发布行情数据
-func (c *NATSClient) PublishQuote(quote model.StockQuote) error {
-	data, err := json.Marshal(quote)
-	if err != nil {
-		return fmt.Errorf("序列化行情数据失败: %w", err)
+	c.cancel() // 取消所有上下文
+
+	// 等待所有消费者退出
+	time.Sleep(1 * time.Second)
+
+	// 清理消费者记录
+	c.mu.Lock()
+	for name := range c.consumers {
+		log.Printf("清理消费者: %s", name)
+	}
+	c.consumers = make(map[string]jetstream.Consumer)
+	c.mu.Unlock()
+
+	if c.conn != nil {
+		c.conn.Close()
 	}
 
-	// 打印详细的发布信息
-	log.Printf("发布行情数据: %s (%.2f) 涨跌幅: %.2f%%, 成交量: %.0f\n",
-		quote.Symbol, quote.Price, quote.ChangePercent, quote.Volume)
-
-	return c.conn.Publish("quotes", data)
+	log.Println("NATS连接已关闭")
+	return nil
 }
 
-// PublishAlert 发布异动事件
-func (c *NATSClient) PublishAlert(alert model.AlertEvent, llmClient *llm.LLMClient) error {
-	// 如果有LLM客户端，生成异动解释
-	if llmClient != nil {
-		explanation, err := llmClient.GenerateAlertExplanation(
-			"异动警报",
-			alert.Symbol,
-			alert.Name,
-			alert.Type,
-		)
-		if err != nil {
-			log.Printf("生成异动解释失败: %v\n", err)
-		} else {
-			// 将解释添加到异动事件中
-			alert.Description = explanation
-		}
+// IsConnected 检查连接状态
+func (c *NATSClient) IsConnected() bool {
+	return c.conn != nil && c.conn.IsConnected()
+}
+
+// GetStats 获取连接统计信息
+func (c *NATSClient) GetStats() nats.Statistics {
+	if c.conn != nil {
+		return c.conn.Stats()
 	}
-
-	data, err := json.Marshal(alert)
-	if err != nil {
-		return fmt.Errorf("序列化异动事件失败: %w", err)
-	}
-
-	// 打印详细的异动事件信息
-	log.Printf("发布异动事件: %s (%s) 类型: %s\n",
-		alert.Symbol, alert.Name, alert.Type)
-	if alert.Description != "" {
-		log.Printf("异动解释: %s\n", alert.Description)
-	}
-
-	return c.conn.Publish("alerts", data)
-}
-
-// 添加新函数：生成股票分析
-func (c *NATSClient) GenerateStockAnalysis(quote model.StockQuote, llmClient *llm.LLMClient) (string, error) {
-	if llmClient == nil {
-		return "", fmt.Errorf("LLM客户端未初始化")
-	}
-
-	return llmClient.GenerateAnalysis(
-		quote.Symbol,
-		quote.Name,
-		quote.Price,
-		quote.ChangePercent,
-	)
-}
-
-// SubscribeQuotes 订阅行情数据
-func (c *NATSClient) SubscribeQuotes(handler func(model.StockQuote)) (stan.Subscription, error) {
-	log.Printf("订阅行情数据主题: quotes\n")
-	return c.conn.Subscribe(
-		"quotes",
-		func(msg *stan.Msg) {
-			var quote model.StockQuote
-			if err := json.Unmarshal(msg.Data, &quote); err != nil {
-				log.Printf("解析行情数据失败: %v\n", err)
-				return
-			}
-
-			// 打印接收到的行情数据
-			log.Printf("接收行情数据: %s (%.2f) 涨跌幅: %.2f%%, 成交量: %.0f\n",
-				quote.Symbol, quote.Price, quote.ChangePercent, quote.Volume)
-
-			handler(quote)
-		},
-		stan.StartWithLastReceived(),
-	)
-}
-
-// SubscribeAlerts 订阅异动事件
-func (c *NATSClient) SubscribeAlerts(handler func(model.AlertEvent)) (stan.Subscription, error) {
-	log.Printf("订阅异动事件主题: alerts\n")
-	return c.conn.Subscribe(
-		"alerts",
-		func(msg *stan.Msg) {
-			var alert model.AlertEvent
-			if err := json.Unmarshal(msg.Data, &alert); err != nil {
-				log.Printf("解析异动事件失败: %v\n", err)
-				return
-			}
-
-			// 打印接收到的异动事件，使用正确的字段名
-			log.Printf("接收异动事件: %s (%s) 类型: %s\n",
-				alert.Symbol, alert.Name, alert.Type)
-
-			handler(alert)
-		},
-		stan.StartWithLastReceived(),
-	)
-}
-
-// PrintQuoteDetails 打印行情数据详情（用于调试）
-func PrintQuoteDetails(quote model.StockQuote) {
-	fmt.Printf("\n===== 行情数据详情 =====\n")
-	fmt.Printf("股票代码: %s\n", quote.Symbol)
-	fmt.Printf("股票名称: %s\n", quote.Name)
-	fmt.Printf("最新价格: %.2f\n", quote.Price)
-	fmt.Printf("开盘价格: %.2f\n", quote.Open)
-	fmt.Printf("最高价格: %.2f\n", quote.High)
-	fmt.Printf("最低价格: %.2f\n", quote.Low)
-	fmt.Printf("成交量: %.0f\n", quote.Volume)
-	fmt.Printf("涨跌幅: %.2f%%\n", quote.ChangePercent)
-	fmt.Printf("时间戳: %s\n", quote.Timestamp.Format("2006-01-02 15:04:05"))
-	fmt.Printf("========================\n\n")
-}
-
-// SubscribeCrawlerData 订阅爬虫数据
-func (c *NATSClient) SubscribeCrawlerData(handler func(model.StockQuote)) (stan.Subscription, error) {
-	log.Printf("订阅爬虫数据主题: crawler_quotes\n")
-	return c.conn.Subscribe(
-		"crawler_quotes",
-		func(msg *stan.Msg) {
-			var quote model.StockQuote
-			if err := json.Unmarshal(msg.Data, &quote); err != nil {
-				log.Printf("解析爬虫数据失败: %v\n", err)
-				return
-			}
-
-			// 打印接收到的爬虫数据
-			log.Printf("接收爬虫数据: %s (%.2f) 涨跌幅: %.2f%%, 成交量: %.0f\n",
-				quote.Symbol, quote.Price, quote.ChangePercent, quote.Volume)
-
-			handler(quote)
-		},
-		stan.StartWithLastReceived(),
-	)
+	return nats.Statistics{}
 }

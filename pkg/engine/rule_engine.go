@@ -122,7 +122,7 @@ func (e *RuleEngine) generateAlertsForUsers(quote model.StockQuote, rule model.D
 							Severity:       severity,
 							Title:          fmt.Sprintf("%s %s", quote.Name, e.getAlertTitle(rule.Type)),
 							Message:        message,
-							QuoteData:      quote,
+							QuoteData:      &quote,
 							AIAnalysis:     "", // 可以后续添加AI分析
 							Intensity:      intensity,
 							Threshold:      rule.Threshold,

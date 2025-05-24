@@ -112,8 +112,8 @@ func (c *LLMClient) Chat(messages []Message) (string, error) {
 	return chatResp.Choices[0].Message.Content, nil
 }
 
-// GenerateAnalysis 生成股票分析
-func (c *LLMClient) GenerateAnalysis(symbol string, name string, price float64, changePercent float64) (string, error) {
+// GenerateStockAnalysis 生成股票分析
+func (c *LLMClient) GenerateStockAnalysis(symbol string, name string, price float64, changePercent float64) (string, error) {
 	// 构建系统提示
 	systemPrompt := "你是一位专业的股票分析师，请根据提供的股票信息进行简要分析。"
 
@@ -129,6 +129,26 @@ func (c *LLMClient) GenerateAnalysis(symbol string, name string, price float64, 
 
 	// 发送请求并获取响应
 	return c.Chat(messages)
+}
+
+// GenerateNewsAnalysis 生成新闻分析
+func (c *LLMClient) GenerateNewsAnalysis(symbol string, news string) (string, error) {
+	// 构建系统提示
+	systemPrompt := "你是一位专业的股票分析师，请根据提供的股票和相关的新闻信息进行简要分析。"
+
+	// 构建用户提示
+	userPrompt := fmt.Sprintf("请对以下股票进行简要分析：\n股票代码：%s\n, 新闻内容： %s \n",
+		symbol, news)
+
+	// 构建消息
+	messages := []Message{
+		{Role: "system", Content: systemPrompt},
+		{Role: "user", Content: userPrompt},
+	}
+
+	// 发送请求并获取响应
+	return c.Chat(messages)
+
 }
 
 // GenerateAlertExplanation 生成异动解释

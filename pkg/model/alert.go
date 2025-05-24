@@ -14,6 +14,9 @@ const (
 	AlertTypePriceVolatility AlertType = "price_volatility"
 	AlertTypeVolumeSpike     AlertType = "volume_spike"
 	AlertTypeNewsImpact      AlertType = "news_alert"
+	AlertTypeSystem         AlertType = "system_alert"    // 系统提醒类型
+	AlertTypePriceChange    AlertType = "price_change"    // 价格变动
+	AlertTypePriceLevel     AlertType = "price_level"     // 价格水平
 )
 
 // AlertSeverity 异动严重程度
@@ -49,20 +52,21 @@ type AlertEvent struct {
 	ID             string        `gorm:"type:uuid;primaryKey" json:"id"`
 	UserID         string        `gorm:"type:uuid;not null;index" json:"user_id"`
 	SubscriptionID string        `gorm:"type:uuid;index" json:"subscription_id"` // 关联订阅
-	Symbol         string        `gorm:"type:varchar(20);not null;index" json:"symbol"`
-	StockName      string        `gorm:"not null" json:"stock_name"`
+	Symbol         string        `gorm:"type:varchar(20);index" json:"symbol"`           // 允许为空，用于系统提醒
+	StockName      string        `json:"stock_name"`                                     // 允许为空，用于系统提醒
 	Type           AlertType     `gorm:"type:varchar(30);not null;index" json:"type"`
 	Severity       AlertSeverity `gorm:"type:varchar(20);not null;index" json:"severity"`
 	Title          string        `gorm:"not null" json:"title"`        // 异动标题
 	Message        string        `gorm:"type:text" json:"message"`     // 异动消息
-	QuoteData      StockQuote    `gorm:"type:jsonb" json:"quote_data"` // JSON格式存储
-	AIAnalysis     string        `gorm:"type:text" json:"ai_analysis"`
+	QuoteData      *StockQuote   `gorm:"type:jsonb" json:"quote_data,omitempty"`        // 修改为指针，允许为空
+	AIAnalysis     string        `gorm:"type:text" json:"ai_analysis,omitempty"`
 	Intensity      float64       `gorm:"type:decimal(8,4);default:0" json:"intensity"` // 异动强度
 	Threshold      float64       `gorm:"type:decimal(10,4)" json:"threshold"`          // 触发阈值
 	IsRead         bool          `gorm:"default:false;index" json:"is_read"`           // 是否已读
 	IsNotified     bool          `gorm:"default:false;index" json:"is_notified"`       // 是否已通知
 	CreatedAt      time.Time     `gorm:"index:idx_created_at" json:"created_at"`
 	UpdatedAt      time.Time     `json:"updated_at"`
+	ExpireAt       *time.Time    `gorm:"index" json:"expire_at,omitempty"`              // 提醒过期时间
 
 	// 关联关系
 	User         User         `gorm:"foreignKey:UserID" json:"user,omitempty"`

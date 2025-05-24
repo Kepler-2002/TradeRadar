@@ -13,16 +13,21 @@ database:
     host: localhost
     port: 5432
     user: postgres
-    password: yourpassword  # 请确认这是您Docker容器中PostgreSQL的密码
+    password: yourpassword
     dbname: traderadar
     sslmode: disable
 
 nats:
   url: "nats://localhost:4222"
-  cluster_id: "test-cluster"  # NATS Streaming默认集群ID
+  cluster_id: "test-cluster"
   client_id: "traderadar"
 
 api:
   port: 8080
   read_timeout: 5s
   write_timeout: 10s
+
+llm:
+  api_url: "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
+  api_key: "71f7c52d-24e8-469e-8afe-8bc212c65e50"
+  model_name: "doubao-1-5-pro-32k-250115"

@@ -38,7 +38,7 @@ func NewServer(port string) *Server {
 }
 
 // SetupRoutes 设置路由
-func (s *Server) SetupRoutes(handlers *Handlers) {
+func (s *Server) setupRoutes() {
 	// 健康检查
 	s.router.GET("/health", handlers.HealthCheck)
 	s.router.GET("/ready", handlers.ReadinessCheck)
@@ -54,6 +54,12 @@ func (s *Server) SetupRoutes(handlers *Handlers) {
 		
 		// 异动历史接口
 		v1.GET("/alerts/history", handlers.GetAlertHistory)
+		
+		// 订阅管理路由
+		v1.POST("/subscriptions", s.handlers.SubscribeStock)
+		v1.GET("/subscriptions", s.handlers.GetUserSubscriptions)
+		v1.PUT("/subscriptions/:id", s.handlers.UpdateSubscription)
+		v1.DELETE("/subscriptions/:id", s.handlers.DeleteSubscription)
 	}
 }
 

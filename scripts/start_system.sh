@@ -3,7 +3,8 @@
 # 设置环境变量
 export CONFIG_PATH="configs/dev/app.yaml"
 export STOCK_CODES="000001.SZ,600000.SH,601318.SH"
-export AKSHARE_URL="http://localhost:5000"
+# 设置AKTools URL环境变量
+export AKSHARE_URL="http://127.0.0.1:8081"
 
 # 确保目录存在
 mkdir -p bin logs configs/dev
@@ -85,8 +86,17 @@ done
 echo "启动AKTools服务..."
 ./scripts/start_aktools.sh
 
-# 设置AKTools URL环境变量
-export AKSHARE_URL="http://127.0.0.1:8081"
+# 启动NATS服务
+echo "启动NATS服务..."
+./scripts/start_nats.sh
+
+# 启动LLM服务
+echo "启动LLM服务..."
+./scripts/start_llm.sh
+
+# 启动主要服务
+echo "启动主要服务..."
+
 
 # 启动服务
 echo "启动服务..."
@@ -104,3 +114,8 @@ echo "监控服务已启动，PID: $!"
 
 echo "所有服务已启动"
 echo "可以通过 'tail -f logs/*.log' 查看日志"
+
+# 在启动其他服务后添加
+# 启动爬虫服务
+echo "启动爬虫服务..."
+./scripts/start_crawler.sh

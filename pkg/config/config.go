@@ -45,6 +45,12 @@ type Config struct {
 		ReadTimeout  time.Duration `yaml:"read_timeout"`
 		WriteTimeout time.Duration `yaml:"write_timeout"`
 	} `yaml:"api"`
+	
+	LLM struct {
+		APIURL    string `yaml:"api_url"`
+		APIKey    string `yaml:"api_key"`
+		ModelName string `yaml:"model_name"`
+	} `yaml:"llm"`
 }
 
 // LoadConfig 从文件加载配置

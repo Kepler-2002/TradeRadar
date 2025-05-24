@@ -1,3 +1,4 @@
+// pkg/messaging/nats.go
 package messaging
 
 import (
@@ -6,7 +7,8 @@ import (
 	"log"
 
 	"github.com/nats-io/stan.go"
-	
+
+	"TradeRadar/pkg/llm"
 	"TradeRadar/pkg/model"
 )
 
@@ -25,7 +27,7 @@ func NewNATSClient(natsURL, clusterID, clientID string) (*NATSClient, error) {
 		clusterID: clusterID,
 		clientID:  clientID,
 	}
-	
+
 	// 连接到NATS Streaming
 	conn, err := stan.Connect(
 		clusterID,
@@ -39,7 +41,7 @@ func NewNATSClient(natsURL, clusterID, clientID string) (*NATSClient, error) {
 	if err != nil {
 		return nil, fmt.Errorf("连接NATS Streaming失败: %w", err)
 	}
-	
+
 	client.conn = conn
 	return client, nil
 }
@@ -55,26 +57,59 @@ func (c *NATSClient) PublishQuote(quote model.StockQuote) error {
 	if err != nil {
 		return fmt.Errorf("序列化行情数据失败: %w", err)
 	}
-	
+
 	// 打印详细的发布信息
-	log.Printf("发布行情数据: %s (%.2f) 涨跌幅: %.2f%%, 成交量: %.0f\n", 
+	log.Printf("发布行情数据: %s (%.2f) 涨跌幅: %.2f%%, 成交量: %.0f\n",
 		quote.Symbol, quote.Price, quote.ChangePercent, quote.Volume)
-	
+
 	return c.conn.Publish("quotes", data)
 }
 
 // PublishAlert 发布异动事件
-func (c *NATSClient) PublishAlert(alert model.AlertEvent) error {
+func (c *NATSClient) PublishAlert(alert model.AlertEvent, llmClient *llm.LLMClient) error {
+	// 如果有LLM客户端，生成异动解释
+	if llmClient != nil {
+		explanation, err := llmClient.GenerateAlertExplanation(
+			"异动警报",
+			alert.Symbol,
+			alert.Name,
+			alert.Type,
+		)
+		if err != nil {
+			log.Printf("生成异动解释失败: %v\n", err)
+		} else {
+			// 将解释添加到异动事件中
+			alert.Description = explanation
+		}
+	}
+
 	data, err := json.Marshal(alert)
 	if err != nil {
 		return fmt.Errorf("序列化异动事件失败: %w", err)
 	}
-	
-	// 打印详细的异动事件信息，使用正确的字段名
-	log.Printf("发布异动事件: %s (%s) 类型: %s\n", 
+
+	// 打印详细的异动事件信息
+	log.Printf("发布异动事件: %s (%s) 类型: %s\n",
 		alert.Symbol, alert.Name, alert.Type)
-	
+	if alert.Description != "" {
+		log.Printf("异动解释: %s\n", alert.Description)
+	}
+
 	return c.conn.Publish("alerts", data)
+}
+
+// 添加新函数：生成股票分析
+func (c *NATSClient) GenerateStockAnalysis(quote model.StockQuote, llmClient *llm.LLMClient) (string, error) {
+	if llmClient == nil {
+		return "", fmt.Errorf("LLM客户端未初始化")
+	}
+
+	return llmClient.GenerateAnalysis(
+		quote.Symbol,
+		quote.Name,
+		quote.Price,
+		quote.ChangePercent,
+	)
 }
 
 // SubscribeQuotes 订阅行情数据
@@ -88,11 +123,11 @@ func (c *NATSClient) SubscribeQuotes(handler func(model.StockQuote)) (stan.Subsc
 				log.Printf("解析行情数据失败: %v\n", err)
 				return
 			}
-			
+
 			// 打印接收到的行情数据
-			log.Printf("接收行情数据: %s (%.2f) 涨跌幅: %.2f%%, 成交量: %.0f\n", 
+			log.Printf("接收行情数据: %s (%.2f) 涨跌幅: %.2f%%, 成交量: %.0f\n",
 				quote.Symbol, quote.Price, quote.ChangePercent, quote.Volume)
-			
+
 			handler(quote)
 		},
 		stan.StartWithLastReceived(),
@@ -110,11 +145,11 @@ func (c *NATSClient) SubscribeAlerts(handler func(model.AlertEvent)) (stan.Subsc
 				log.Printf("解析异动事件失败: %v\n", err)
 				return
 			}
-			
+
 			// 打印接收到的异动事件，使用正确的字段名
-			log.Printf("接收异动事件: %s (%s) 类型: %s\n", 
+			log.Printf("接收异动事件: %s (%s) 类型: %s\n",
 				alert.Symbol, alert.Name, alert.Type)
-			
+
 			handler(alert)
 		},
 		stan.StartWithLastReceived(),
@@ -134,4 +169,26 @@ func PrintQuoteDetails(quote model.StockQuote) {
 	fmt.Printf("涨跌幅: %.2f%%\n", quote.ChangePercent)
 	fmt.Printf("时间戳: %s\n", quote.Timestamp.Format("2006-01-02 15:04:05"))
 	fmt.Printf("========================\n\n")
+}
+
+// SubscribeCrawlerData 订阅爬虫数据
+func (c *NATSClient) SubscribeCrawlerData(handler func(model.StockQuote)) (stan.Subscription, error) {
+	log.Printf("订阅爬虫数据主题: crawler_quotes\n")
+	return c.conn.Subscribe(
+		"crawler_quotes",
+		func(msg *stan.Msg) {
+			var quote model.StockQuote
+			if err := json.Unmarshal(msg.Data, &quote); err != nil {
+				log.Printf("解析爬虫数据失败: %v\n", err)
+				return
+			}
+
+			// 打印接收到的爬虫数据
+			log.Printf("接收爬虫数据: %s (%.2f) 涨跌幅: %.2f%%, 成交量: %.0f\n",
+				quote.Symbol, quote.Price, quote.ChangePercent, quote.Volume)
+
+			handler(quote)
+		},
+		stan.StartWithLastReceived(),
+	)
 }
